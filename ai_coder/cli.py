@@ -1,10 +1,10 @@
 import ast
 import astor
-from openai_client import callLLM
+from ai_coder.openai_client import callLLM
 import argparse
 import os
-from file_utils import read_file, write_file
-from prompts import CLEANUP_PROMPT
+from ai_coder.file_utils import read_file, write_file
+from ai_coder.prompts import CLEANUP_PROMPT
 
 def main():
     # Create the parser

@@ -1,7 +1,7 @@
 import os
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
-from prompts import SYS_PROMPT
+from ai_coder.prompts import SYS_PROMPT
 
 from dotenv import load_dotenv
 # Load environment variables
