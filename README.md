@@ -13,7 +13,7 @@ Install ai_coder into your pip environment with:
 ``` bash
 pip install -e .
 ```
-This installs the ai_coder package in editable mode. All imports of ai_coder will run the ai_coder source at `./src/ai_coder` directly.
+This installs the ai_coder package in editable mode. All imports of ai_coder will run the ai_coder source at `./ai_coder` directly.
 
 ## Test
 ### 1. Setup OPENAI API KEY
