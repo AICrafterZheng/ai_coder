@@ -9,6 +9,6 @@ def get_top_hacker_news():
 
 @ai_code
 def article_summary():
-    return """Implement a function that can fetch a webpage and  call `callLLM` (import callLLM from ai_coder.openai_client) to get the summary of the webpage. 
-    The callLLM function takes two arguments, the first argument is the text to summarize and the second argument is the task to perform.
+    return """Implement a function that can fetch a webpage and  call `call_llm` (import call_llm from ai_coder.openai_client) to get the summary of the webpage. 
+    The call_llm function takes two arguments, the first argument is the text to summarize and the second argument is the task to perform.
     The input is the url of the webpage and the output is the summary of the webpage."""

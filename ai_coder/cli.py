@@ -1,6 +1,6 @@
 import ast
 import astor
-from ai_coder.openai_client import callLLM
+from ai_coder.openai_client import call_llm
 import argparse
 import os
 from ai_coder.file_utils import read_file, write_file
@@ -80,7 +80,7 @@ def gen_code(filePath):
                     # Generate code for this function
                     if function_args and len(function_args) > 0:
                         description += f" \n The arguments of the function are: {function_args}."
-                    generated_code = callLLM(description)
+                    generated_code = call_llm(description)
                     print(f"generated_code: {generated_code}")
                     # Replace the function body with the generated code
                     generated_code = generated_code.replace("```python", "").replace("```", "")
@@ -110,7 +110,7 @@ def gen_code(filePath):
 
     full_code = read_file(out_path)
     print("Reviewing the code...")
-    full_code = callLLM(full_code, CLEANUP_PROMPT.format(filePath))
+    full_code = call_llm(full_code, CLEANUP_PROMPT.format(filePath))
     write_file(out_path, full_code)
     print("Finished generating the code!")
 

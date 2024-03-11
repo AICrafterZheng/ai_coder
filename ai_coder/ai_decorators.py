@@ -1,4 +1,4 @@
-from ai_coder.openai_client import callLLM
+from ai_coder.openai_client import call_llm
 from ai_coder.file_utils import write_file, append_file, read_file
 from typing import Optional
 import os
@@ -12,7 +12,7 @@ class ai_code:
         task = function()
         print(f"task: {task}")
         task += f". please use the function name {function.__name__} to implement the function."
-        res = callLLM(task)
+        res = call_llm(task)
         print(f"code:\n {res}")
         if self.filename is None:
             self.filename = f"{function.__name__}"
@@ -23,7 +23,7 @@ class ai_code:
         if os.path.exists(filePath):
             append_file(filePath, f"\n\n{res}")
             code = read_file(filePath)
-            code = callLLM(code, "Please move the imports to the top of the file. And remove the duplicate imports. And remove the duplicate functions.")
+            code = call_llm(code, "Please move the imports to the top of the file. And remove the duplicate imports. And remove the duplicate functions.")
             write_file(filePath, code)
         else:
             write_file(filePath, res)        

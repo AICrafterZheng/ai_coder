@@ -11,7 +11,7 @@ AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "")
 AZURE_OPENAI_API_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_API_DEPLOYMENT_NAME", "")
 AZURE_OPENAI_API_BASE = os.getenv("AZURE_OPENAI_API_BASE", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
 
 try:
     if OPENAI_API_KEY != "":
@@ -29,17 +29,17 @@ try:
 except Exception as e:
     print(f"Model Error: {e}")
 
-def callLLM(user_input: str, sys_prompt: str = SYS_PROMPT):
+def call_llm(user_input: str, sys_prompt: str = SYS_PROMPT):
     try:
         system_message = SystemMessage(content=sys_prompt)
         human_message = HumanMessage(content=user_input)
         response = model([system_message, human_message])
         return response.content
     except Exception as e:
-        print(f"callLLM Error: {e}")
+        print(f"call_llm Error: {e}")
         return "Error: Unable to connect to the model."
 
 
 if __name__ == "__main__":
-    response = callLLM("Implement a function that takes a string and returns the first character that appears only once in the string.")
+    response = call_llm("Implement a function that takes a string and returns the first character that appears only once in the string.")
     print(response)
