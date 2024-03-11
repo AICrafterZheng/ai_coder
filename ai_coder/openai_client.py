@@ -30,6 +30,7 @@ except Exception as e:
     print(f"Model Error: {e}")
 
 def call_llm(user_input: str, sys_prompt: str = SYS_PROMPT):
+    print(f"call_llm: {user_input}")
     try:
         system_message = SystemMessage(content=sys_prompt)
         human_message = HumanMessage(content=user_input)
