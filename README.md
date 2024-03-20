@@ -3,10 +3,22 @@
 ## Developing and Contributing
 From the root of this repo:
 
-Create a virtual env
+Create a virtual env and activate.
 ``` bash
-python3 -m venv venv
-. ./venv/bin/activate
+python3 -m venv .venv
+```
+>How you activate the environment depends on your operating system and shell. Typically, it involves sourcing an **`activate`** script located in the virtual environment's **`bin`** (Unix-based) or **`Scripts`** (Windows) directory.
+
+For Unix-based systems:
+
+```bash
+. ./.venv/bin/activate
+```
+
+For Windows Command Prompt:
+```
+.\.venv\Scripts\activate
+
 ```
 
 Install ai_coder into your pip environment with:
@@ -14,6 +26,27 @@ Install ai_coder into your pip environment with:
 pip install -e .
 ```
 This installs the ai_coder package in editable mode. All imports of ai_coder will run the ai_coder source at `./ai_coder` directly.
+
+### Use ai_coder in another project (Let's see Project B)
+#### **Step 1: Identify the Path to ai_coder**
+
+First, you need to find the absolute path to ai_coder's directory. This is the directory that contains the **`setup.py`** file. You can navigate to this directory in your terminal and use a command to get the path:
+- On Unix-based systems (Linux, macOS), you can use **`pwd`**.
+- On Windows, you can use **`cd`** without arguments or **`echo %cd%`** in Command Prompt (or **`echo $PWD`** in PowerShell).
+#### **Step 2: Activate Project B's Virtual Environment**
+
+Before you install ai_coder as a dependency in Project B, make sure Project B's virtual environment is activated.
+
+#### **Step 3: Install ai_coder in Editable Mode into Project B's Environment**
+
+With Project B's virtual environment activated, use **`pip`** to install ai_coder in editable mode using the path you obtained in Step 1. Replace **`/path/to/projectA`** with the actual path to ai_coder:
+
+```bash
+pip install -e /path/to/ai_coder
+```
+
+This command will install ai_coder into Project B's virtual environment in editable mode. Any changes made to ai_coder's code will be reflected in Project B without needing to reinstall ai_coder.
+
 
 ## Test
 ### 1. Setup OPENAI API KEY
@@ -35,7 +68,7 @@ def get_top_hacker_news():
 ```
 ### 3. Run
 ```
-ai_coder gen_code prompts/src/my_code.py
+ai_coder gen prompts/src/my_code.py
 
 ```
 

@@ -12,26 +12,25 @@ def main():
     subparsers = parser.add_subparsers(dest='command')
 
     # Subcommand: gen_code
-    parser_gen_code = subparsers.add_parser('gen_code', help='Generate code from a file')
+    parser_gen_code = subparsers.add_parser('gen', help='Generate code from a file')
     parser_gen_code.add_argument('filepath', type=str, help='The file to generate code from')
 
     args = parser.parse_args()
-
-    if args.command == 'gen_code':
+    print(f"args: {args}")
+    if args.command == 'gen':
         gen_code(args.filepath)
     else:
         parser.print_help()
 
 def gen_code(filePath):
-
     # Write the new code to a file
     directories = filePath.split(os.sep)
-    out_dir = os.sep.join(directories[1:len(directories)-1])
+    out_dir = f"./{os.sep.join(directories[1:len(directories)-1])}"
     print(f"out_dir: {out_dir}")
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    out_path = os.sep.join(directories[1:])
+    out_path = f"./{os.sep.join(directories[1:])}"
     print(f"Generating code from {filePath} to {out_path}...")
     existing_tree = None
     existing_tree_list = []
