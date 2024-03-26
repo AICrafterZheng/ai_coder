@@ -5,6 +5,70 @@ import argparse
 import os
 from ai_coder.file_utils import read_file, write_file
 from ai_coder.prompts import CLEANUP_PROMPT
+import importlib
+import inspect
+
+def execute_imports(tree):
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                module_name = alias.name
+                imported_module = importlib.import_module(module_name)
+                globals()[module_name] = imported_module
+        elif isinstance(node, ast.ImportFrom):
+            module_name = node.module
+            imported_module = importlib.import_module(module_name)
+            for alias in node.names:
+                attribute_name = alias.name
+                attribute = getattr(imported_module, attribute_name)
+                globals()[attribute_name] = attribute
+
+def get_promt(function_def):
+        # Get the function docstring
+    docstring = ast.get_docstring(function_def)
+    if docstring:
+        return docstring
+    f_string = get_function_f_string_info(function_def)
+    if f_string:
+        return f_string
+    # Get the function constants
+    constants = []
+    for node in ast.walk(function_def):
+        if isinstance(node, ast.Constant):
+            constants.append(node.value)
+    return " ".join(constants)
+
+def get_function_f_string_info(function_def):
+    # Find the f-string node within the function body
+    f_string_node = None
+    for node in ast.walk(function_def):
+        if isinstance(node, ast.JoinedStr):
+            f_string_node = node
+            break
+    if f_string_node:
+        # Get the f-string
+        f_string = ast.unparse(f_string_node)
+        # Find the formatted values in the f-string
+        formatted_values = []
+        for value in f_string_node.values:
+            if isinstance(value, ast.FormattedValue):
+                formatted_values.append(ast.unparse(value.value))
+
+        # Check if any formatted value is a function and get its information
+        for value in formatted_values:
+            try:
+                func = eval(value)
+                if inspect.isfunction(func):
+                    signature = inspect.signature(func)
+                    parameters = signature.parameters
+                    param_info = ", ".join(f"{param.name}: {param.annotation}" for param in parameters.values())
+                    f_string += f"\n The function: {value} is already defined, you can just call it, which has Parameters: {param_info}"
+            except NameError as e:
+                print(f"Function '{value}' error: {e}")
+        return f_string
+    else:
+        print("F-string not found in the function.")
+        return None
 
 def main():
     # Create the parser
@@ -21,6 +85,7 @@ def main():
         gen_code(args.filepath)
     else:
         parser.print_help()
+
 
 def gen_code(filePath):
     # Write the new code to a file
@@ -42,6 +107,8 @@ def gen_code(filePath):
 
     code = read_file(filePath)
     tree = ast.parse(code)
+    execute_imports(tree)
+
     new_tree_list = []
     imports_and_assigns = []
 
@@ -74,19 +141,16 @@ def gen_code(filePath):
                     break
             if ai_code_decorator_update:
                 # Extract the description from the return statement
-                if node.body and isinstance(node.body[0], ast.Return):
-                    description = node.body[0].value.s
-                    # Generate code for this function
-                    if function_args and len(function_args) > 0:
-                        description += f" \n The arguments of the function are: {function_args}."
-                    generated_code = call_llm(description)
-                    print(f"generated_code: {generated_code}")
-                    # Replace the function body with the generated code
-                    generated_code = generated_code.replace("```python", "").replace("```", "")
-                    new_body = ast.parse(generated_code).body
-                    node.body = new_body
-                    if existing_tree is not None:
-                        existing_tree = replace_function_implementation(existing_tree, function_name, new_body)
+                prompt = get_promt(node)
+                print(f"The Prompt to generate the code: {prompt}")
+                generated_code = call_llm(prompt)
+                print(f"generated_code: {generated_code}")
+                # Replace the function body with the generated code
+                generated_code = generated_code.replace("```python", "").replace("```", "")
+                new_body = ast.parse(generated_code).body
+                node.body = new_body
+                if existing_tree is not None:
+                    existing_tree = replace_function_implementation(existing_tree, function_name, new_body)
             if has_ai_code_decorator is False and existing_tree is not None:
                 print(f"The function {function_name} does not have the ai_code decorator. Adding the function to the existing code.")
                 existing_tree = replace_function_implementation(existing_tree, function_name, node.body)

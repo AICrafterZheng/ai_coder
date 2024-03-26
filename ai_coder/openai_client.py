@@ -13,11 +13,9 @@ AZURE_OPENAI_API_BASE = os.getenv("AZURE_OPENAI_API_BASE", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
 try:
-    if OPENAI_API_KEY != "":
-        print("Using OpenAI API")
-        os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-        model = ChatOpenAI(model=OPENAI_MODEL)
-    else:
+
+    model = ChatOpenAI(model=OPENAI_MODEL)
+    if AZURE_OPENAI_API_KEY != "":
         print("Using Azure OpenAI API")
         os.environ["AZURE_OPENAI_API_KEY"] = AZURE_OPENAI_API_KEY
         os.environ["AZURE_OPENAI_ENDPOINT"] = AZURE_OPENAI_API_BASE
