@@ -12,6 +12,7 @@ setup(
         "langchain",
         "langchain-openai",
         "python-dotenv",
-        "astor"
+        "astor",
+        "loguru"
     ],
 )

@@ -2,6 +2,7 @@ import os
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from ai_coder.prompts import SYS_PROMPT
+from loguru import logger
 
 from dotenv import load_dotenv
 # Load environment variables
@@ -16,7 +17,7 @@ try:
 
     model = ChatOpenAI(model=OPENAI_MODEL)
     if AZURE_OPENAI_API_KEY != "":
-        print("Using Azure OpenAI API")
+        logger.info("Using Azure OpenAI API")
         os.environ["AZURE_OPENAI_API_KEY"] = AZURE_OPENAI_API_KEY
         os.environ["AZURE_OPENAI_ENDPOINT"] = AZURE_OPENAI_API_BASE
         model = AzureChatOpenAI(
@@ -24,20 +25,20 @@ try:
             azure_deployment=AZURE_OPENAI_API_DEPLOYMENT_NAME,
         )
 except Exception as e:
-    print(f"Model Error: {e}")
+    logger.error(f"Model Error: {e}")
 
 def call_llm(user_input: str, sys_prompt: str = SYS_PROMPT):
-    print(f"call_llm: {user_input}")
+    logger.info(f"call_llm: {user_input}")
     try:
         system_message = SystemMessage(content=sys_prompt)
         human_message = HumanMessage(content=user_input)
         response = model([system_message, human_message])
         return response.content
     except Exception as e:
-        print(f"call_llm Error: {e}")
+        logger.error(f"call_llm Error: {e}")
         return "Error: Unable to connect to the model."
 
 
 if __name__ == "__main__":
     response = call_llm("Implement a function that takes a string and returns the first character that appears only once in the string.")
-    print(response)
+    logger.info(response)
