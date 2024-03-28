@@ -5,6 +5,9 @@ description = ""
 authors = ["Hao Qian <2035305+chandlerq@users.noreply.github.com>"]
 readme = "README.md"
 
+[tool.poetry.scripts]
+ai_coder = "ai_coder.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.11"
 langchain = "^0.1.11"

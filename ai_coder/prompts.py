@@ -7,6 +7,7 @@ Constraints:
 4. Please don't output your thinking process, only the final code
 5. Please only return raw python code, NO backticks
 6. Wrap any explanation in triple quotes
+7. Please only output the function body code and docstring, don't include any function signature info
 
 Example input: \"Implement a python function that can write string to a file\" 
 Example output:

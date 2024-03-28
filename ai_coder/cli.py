@@ -46,7 +46,6 @@ class AICoder:
         out_path = f"./{os.sep.join(directories[1:])}"
         logger.info(f"Generating code from {filePath} to {out_path}...")
         existing_tree = None
-        existing_tree_list = []
         if os.path.exists(out_path):
             existing_code = read_file(out_path)
             if existing_code.strip() != "":
@@ -58,66 +57,27 @@ class AICoder:
         self.execute_imports()
         self.execute_globals()
 
-        new_tree_list = []
-        imports_and_assigns = []
-
-        for node in self.tree.body:
-            # Extract the imports and assigns
-            if isinstance(node, (ast.Import, ast.ImportFrom, ast.Assign)):
-                imports_and_assigns.append(node)
-
         for node in ast.walk(self.tree):
-            if isinstance(node, ast.FunctionDef):
-                ai_code_decorator_update = False
-                has_ai_code_decorator = False
-                function_name = node.name
-                function_args = [arg.arg for arg in node.args.args]
-                logger.info(f"Arguments of the function {function_name}: {function_args}")
-                for decorator in node.decorator_list:
-                    if isinstance(decorator, ast.Name) and decorator.id == 'ai_code':
-                        has_ai_code_decorator = True
-                        ai_code_decorator_update = True
-                        node.decorator_list = []
-                        break
-                    elif isinstance(decorator, ast.Call) and decorator.func.id == 'ai_code':
-                        has_ai_code_decorator = True
-                        args = [ast.literal_eval(arg) for arg in decorator.args] if hasattr(decorator, 'args') else []
-                        # Get the keyword arguments
-                        kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in decorator.keywords} if hasattr(decorator, 'keywords') else {}
-                        logger.info(f"Arguments of the ai_code decorator: {args}")
-                        logger.info(f"Keyword arguments of the ai_code decorator: {kwargs}")
-                        ai_code_decorator_update = kwargs.get('update', True)
-                        break
-                if ai_code_decorator_update:
-                    # Extract the description from the return statement
-                    prompt = self.get_promt(node)
-                    logger.info(f"The Prompt to generate the code for function {function_name}: {prompt}")
-                    generated_code = call_llm(prompt)
-                    logger.info(f"generated_code: {generated_code}")
-                    # Replace the function body with the generated code
-                    generated_code = generated_code.replace("```python", "").replace("```", "")
-                    new_body = ast.parse(generated_code).body
-                    node.body = new_body
-                    if existing_tree is not None:
-                        existing_tree = self.replace_function_implementation(existing_tree, function_name, new_body)
-                if has_ai_code_decorator is False and existing_tree is not None:
-                    logger.info(f"The function {function_name} does not have the ai_code decorator. Adding the function to the existing code.")
-                    existing_tree = self.replace_function_implementation(existing_tree, function_name, node.body)
-                # Add the processed function to the list
-                new_tree_list.append(node)
-        
-        existing_tree_list = imports_and_assigns + existing_tree.body if existing_tree is not None else []
+            if isinstance(node, ast.FunctionDef) and hasattr(node, 'decorator_list'):
+                decorators = [d.id for d in node.decorator_list]
+                if 'ai_code' in decorators:
+                    if self.is_force_update(node):
+                        new_body = self.get_function_implementation(node)
+                        self.replace_function_implementation(node, node.name, new_body)
+                        logger.info(f"Saving the generated code to {out_path}.")
+                    elif self.is_function_prompt_updated(node):
+                        new_body = self.get_function_implementation(node)
+                        self.replace_function_implementation(node, node.name, new_body)
+                        logger.info(f"Saving the generated code to {out_path}.")
+                    elif existing_tree and self.is_function_defined(node.name):
+                        new_body = self.get_function_from_tree(existing_tree, node.name).body
+                        self.replace_function_implementation(node, node.name, new_body)
+                    else:
+                        new_body = self.get_function_implementation(node)
+                        self.replace_function_implementation(node, node.name, new_body)
+                        logger.info(f"Saving the generated code to {out_path}.")
 
-        if existing_tree is not None:
-            save_code = existing_tree_list
-            logger.info(f"Saving the updated code to {out_path}.")
-        else:
-            save_code = new_tree_list
-            logger.info(f"Saving the generated code to {out_path}.")
-
-        # Create a new module with the processed functions
-        new_module = ast.Module(body=save_code, type_ignores=[])
-        save_code = astor.to_source(new_module)
+        save_code = astor.to_source(self.tree)
         write_file(out_path, save_code)
 
         full_code = read_file(out_path)
@@ -127,12 +87,23 @@ class AICoder:
         logger.info("Finished generating the code!")
 
 
+    def is_force_update(self, function):
+        return False #TODO
+
+    def is_function_prompt_updated(self, function):
+        return False #TODO
+
     def is_function_defined(self, function):
         for node in ast.walk(self.tree):
             if isinstance(node, ast.FunctionDef) and node.name == function:
                 return True
         return False
 
+    def get_function_from_tree(self, tree, function_name):
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                return node
+        return None
 
     def get_function_f_string_info(self, function_def):
         # Find the f-string node within the function body
@@ -169,8 +140,8 @@ class AICoder:
             logger.warning("F-string not found in the function.")
             return None
     
-    def get_promt(self, function_def):
-            # Get the function docstring
+    def get_prompt(self, function_def):
+        # Get the function docstring
         docstring = ast.get_docstring(function_def)
         if docstring:
             return docstring
@@ -194,10 +165,19 @@ class AICoder:
                 return ", ".join(arguments_list)
         return ""
 
+    def get_function_implementation(self, node):
+        # Extract the description from the return statement
+        prompt = self.get_prompt(node)
+        logger.info(f"The Prompt to generate the code for function {node.name}: {prompt}")
+        generated_code = call_llm(prompt)
+        logger.info(f"generated_code: {generated_code}")
+        # Replace the function body with the generated code
+        generated_code = generated_code.replace("```python", "").replace("```", "")
+        new_body = ast.parse(generated_code).body
+        logger.info(f"new body: {new_body}")
+        return new_body
 
-
-
-    def replace_function_implementation(tree, function_name, new_body):
+    def replace_function_implementation(self, tree, function_name, new_body):
         class ReplaceFunction(ast.NodeTransformer):
             def visit_FunctionDef(self, node):
                 if node.name == function_name:
