@@ -4,38 +4,17 @@ from ai_coder.openai_client import call_llm
 import argparse
 import os
 from ai_coder.file_utils import read_file, write_file
-from ai_coder.prompts import CLEANUP_PROMPT
+from ai_coder.prompts import SYS_PROMPT, CLEANUP_PROMPT
 import importlib
 import inspect
 from loguru import logger
+from typing import List, Union
 
 class AICoder:
-    def __init__(self):
+    def __init__(self) -> None:
         self.tree = None
 
-    def execute_imports(self):
-        for node in ast.walk(self.tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    module_name = alias.name
-                    imported_module = importlib.import_module(module_name)
-                    globals()[module_name] = imported_module
-            elif isinstance(node, ast.ImportFrom):
-                module_name = node.module
-                imported_module = importlib.import_module(module_name)
-                for alias in node.names:
-                    attribute_name = alias.name
-                    attribute = getattr(imported_module, attribute_name)
-                    globals()[attribute_name] = attribute
-    
-    def execute_globals(self):
-        for node in ast.walk(self.tree):
-            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-                attr_name = node.targets[0].id
-                attr_value = ast.literal_eval(node.value)
-                globals()[attr_name] = attr_value
-
-    def gen_code(self, filePath):
+    def gen_code(self, filePath: str) -> None:
         # Write the new code to a file
         directories = filePath.split(os.sep)
         out_dir = f"./{os.sep.join(directories[1:len(directories)-1])}"
@@ -51,11 +30,8 @@ class AICoder:
             if existing_code.strip() != "":
                 existing_tree = ast.parse(existing_code)
 
-
         code = read_file(filePath)
         self.tree = ast.parse(code)
-        self.execute_imports()
-        self.execute_globals()
 
         for node in ast.walk(self.tree):
             if isinstance(node, ast.FunctionDef) and hasattr(node, 'decorator_list'):
@@ -87,25 +63,25 @@ class AICoder:
         logger.info("Finished generating the code!")
 
 
-    def is_force_update(self, function):
+    def is_force_update(self, function: ast.FunctionDef) -> bool:
         return False #TODO
 
-    def is_function_prompt_updated(self, function):
+    def is_function_prompt_updated(self, function: ast.FunctionDef) -> bool:
         return False #TODO
 
-    def is_function_defined(self, function):
+    def is_function_defined(self, function: str) -> bool:
         for node in ast.walk(self.tree):
             if isinstance(node, ast.FunctionDef) and node.name == function:
                 return True
         return False
 
-    def get_function_from_tree(self, tree, function_name):
+    def get_function_from_tree(self, tree: ast.AST, function_name: str) -> Union[ast.FunctionDef, None]:
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name == function_name:
                 return node
         return None
 
-    def get_function_f_string_info(self, function_def):
+    def get_function_f_string_info(self, function_def: ast.FunctionDef) -> Union[str, None]:
         # Find the f-string node within the function body
         f_string_node = None
         for node in ast.walk(function_def):
@@ -121,26 +97,60 @@ class AICoder:
                 if isinstance(value, ast.FormattedValue):
                     formatted_values.append(ast.unparse(value.value))
 
-            # Check if any formatted value is a function and get its information
+            # Check if any formatted value is a global variable or function and get its information for LLM to use
             for value in formatted_values:
-                try:                    
-                    if self.is_function_defined(value):
-                        f_string += f"\n The function: {value} is already defined, you can just call it, which has Parameters: {self.get_func_def_param_info(value)}"
-                    elif value in globals():
+                try:
+                    if self.is_variable_defined(value):
                         f_string += f"\n The variable: {value} is already defined, you can just use it."
-                    elif inspect.isfunction(eval(value)):
-                        signature = inspect.signature(eval(value))
-                        parameters = signature.parameters
-                        param_info = ", ".join(f"{param.name}: {param.annotation}" for param in parameters.values())
-                        f_string += f"\n The function: {value} is imported, you can just call it, which has Parameters: {param_info}"
+                    else:
+                        signature = self.get_function_signature(value)
+                        f_string += signature
                 except NameError as e:
                     logger.error(f"Function '{value}' error: {e}")
             return f_string
         else:
             logger.warning("F-string not found in the function.")
             return None
-    
-    def get_prompt(self, function_def):
+
+    def get_function_signature(self, function_name: str) -> str:
+        # Find the import statement for call_llm
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name == function_name:
+                        logger.info(f"Function {function_name} is imported. Checking the signature...")
+                        # Import the module containing the function
+                        module_name = node.module
+                        module = importlib.import_module(module_name)
+                        # Get the imported function
+                        imported_function = getattr(module, alias.name)
+                        # Get the function signature
+                        signature = inspect.signature(imported_function)
+                        return f" The function {function_name} is imported, and has signature {signature}. You can just call it."
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                logger.info(f"Function {function_name} is defined. Checking the signature...")
+                # Get the function arguments
+                args = [arg.arg for arg in node.args.args]
+                # Get the function return type
+                if isinstance(node.returns, ast.Name):
+                    return_type = node.returns.id
+                elif isinstance(node.returns, ast.Constant):
+                    return_type = node.returns.value
+                else:
+                    return_type = None
+                return f" The function {function_name} is defined, and has signature ({', '.join(args)}) -> {return_type}. You can just call it."
+        return ""
+
+    def is_variable_defined(self, variable_name: str) -> bool:
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == variable_name:
+                        return True
+        return False
+
+    def get_prompt(self, function_def: ast.FunctionDef) -> str:
         # Get the function docstring
         docstring = ast.get_docstring(function_def)
         if docstring:
@@ -155,21 +165,11 @@ class AICoder:
                 constants.append(node.value)
         return " ".join(constants)
 
-
-    def get_func_def_param_info(self, function):
-        for node in ast.walk(self.tree):
-            if isinstance(node, ast.FunctionDef) and node.name == function:
-                # Get the function arguments
-                arguments = node.args
-                arguments_list = [arg.arg for arg in arguments.args]
-                return ", ".join(arguments_list)
-        return ""
-
-    def get_function_implementation(self, node):
+    def get_function_implementation(self, node: ast.FunctionDef) -> List[ast.AST]:
         # Extract the description from the return statement
         prompt = self.get_prompt(node)
-        logger.info(f"The Prompt to generate the code for function {node.name}: {prompt}")
-        generated_code = call_llm(prompt)
+        logger.info(f"The prompt to generate the code for function {node.name}: {prompt}")
+        generated_code = call_llm(prompt, sys_prompt=SYS_PROMPT)
         logger.info(f"generated_code: {generated_code}")
         # Replace the function body with the generated code
         generated_code = generated_code.replace("```python", "").replace("```", "")
@@ -177,9 +177,9 @@ class AICoder:
         logger.info(f"new body: {new_body}")
         return new_body
 
-    def replace_function_implementation(self, tree, function_name, new_body):
+    def replace_function_implementation(self, tree: ast.AST, function_name: str, new_body: List[ast.AST]) -> ast.AST:
         class ReplaceFunction(ast.NodeTransformer):
-            def visit_FunctionDef(self, node):
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
                 if node.name == function_name:
                     # Replace the function body
                     node.body = new_body
@@ -190,7 +190,7 @@ class AICoder:
         new_tree_list = transformer.visit(tree)
         return new_tree_list
 
-def main():
+def main() -> None:
     # Create the parser
     parser = argparse.ArgumentParser(description='AI Coder Tool')
     subparsers = parser.add_subparsers(dest='command')
@@ -205,7 +205,7 @@ def main():
         ai_coder = AICoder()
         ai_coder.gen_code(args.filepath)
     else:
-        parser.logger.info_help()
+        parser.print_help()
 
 if __name__ == "__main__":
     main()

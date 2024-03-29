@@ -27,7 +27,7 @@ try:
 except Exception as e:
     logger.error(f"Model Error: {e}")
 
-def call_llm(user_input: str, sys_prompt: str = SYS_PROMPT):
+def call_llm(user_input: str, sys_prompt: str = "") -> str:
     logger.info(f"call_llm: {user_input}")
     try:
         system_message = SystemMessage(content=sys_prompt)

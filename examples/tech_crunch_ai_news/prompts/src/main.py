@@ -28,3 +28,6 @@ def split_messages_to_send(message, delimiter = "\n") -> None:
 
     To send to discord you can call {send_discord} function.
     """
+
+if __name__ == "__main__":
+   print(article_summary("https://techcrunch.com/2024/03/27/amazon-doubles-down-on-anthropic-completing-its-planned-4b-investment/"))
