@@ -13,6 +13,8 @@ setup(
         "langchain-openai",
         "python-dotenv",
         "astor",
-        "loguru"
+        "loguru",
+        "black",
+        "ruff"
     ],
 )

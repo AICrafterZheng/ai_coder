@@ -1,5 +1,5 @@
 import os
-from langchain.schema import HumanMessage, SystemMessage
+from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from ai_coder.prompts import SYS_PROMPT
 from loguru import logger
@@ -14,10 +14,9 @@ AZURE_OPENAI_API_BASE = os.getenv("AZURE_OPENAI_API_BASE", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
 try:
-
     model = ChatOpenAI(model=OPENAI_MODEL)
     if AZURE_OPENAI_API_KEY != "":
-        logger.info("Using Azure OpenAI API")
+        logger.info(f"Using Azure OpenAI API, version: {AZURE_OPENAI_API_VERSION}, model: {AZURE_OPENAI_API_DEPLOYMENT_NAME}")
         os.environ["AZURE_OPENAI_API_KEY"] = AZURE_OPENAI_API_KEY
         os.environ["AZURE_OPENAI_ENDPOINT"] = AZURE_OPENAI_API_BASE
         model = AzureChatOpenAI(
@@ -27,12 +26,13 @@ try:
 except Exception as e:
     logger.error(f"Model Error: {e}")
 
-def call_llm(user_input: str, sys_prompt: str = "") -> str:
-    logger.info(f"call_llm: {user_input}")
+def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
     try:
         system_message = SystemMessage(content=sys_prompt)
         human_message = HumanMessage(content=user_input)
-        response = model([system_message, human_message])
+        ai_message = AIMessage(content=ai_input)
+        # logger.debug(f"system_message: {system_message.content}\nuser_input: {human_message.content}\nai_input: {ai_message.content}")
+        response = model.invoke([system_message, human_message, ai_message])
         return response.content
     except Exception as e:
         logger.error(f"call_llm Error: {e}")

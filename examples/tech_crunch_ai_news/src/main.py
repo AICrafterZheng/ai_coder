@@ -2,52 +2,53 @@
 
 import requests
 from bs4 import BeautifulSoup
+import textwrap
 from ai_coder.openai_client import call_llm
 
-discord_webhook = 'https://discord.com/api/webhooks/1234567890/ABCDEFGHIJKLMN'
+discord_webhook = "https://discord.com/api/webhooks/1234567890/ABCDEFGHIJKLMN"
 
 
-def article_summary(url: str) ->str:
+def article_summary(url: str) -> str:
     """
-Function to fetch a webpage and get its summary using call_llm function
-:param url: string, url of the webpage
-"""
+    This function fetches a webpage and gets its summary.
+    """
     response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    webpage_text = ''.join(soup.stripped_strings)
+    soup = BeautifulSoup(response.text, "html.parser")
+    webpage_text = soup.get_text()
     summary = call_llm(webpage_text)
     return summary
 
 
-def send_discord(message: str) ->None:
+def send_discord(message: str) -> None:
     """
-Function to send a message to a Discord webhook
-:param message: string, the message to send
-"""
-    requests.post(discord_webhook, data={'content': message})
-
-
-def split_messages_to_send(message, delimiter='\n') ->None:
+    Function to send a message to a Discord webhook
+    :param message: string, the message to send
     """
-Function to split a long message into chunks of 2000 characters and send it to Discord
-:param message: string, the message to send to discord
-:param delimiter: string, the delimiter to split the message
+    data = {"content": message}
+    response = requests.post(discord_webhook, data=data)
+    if response.status_code == 204:
+        print("Message sent successfully")
+    else:
+        print(f"Failed to send message, status code: {response.status_code}")
 
-Rules: 
-1. The message is a long string that has bullet points and delimited by "delimiter".
-2. The message should be split by 2000 characters and send to discord.
-3. The message send to discord should be sub group of the original message, which is split by "delimiter", and has a maximum length of 2000 characters.
 
-To send to discord you can call {send_discord} function.
-"""
-    chunks = [message[i:i + 2000] for i in range(0, len(message), 2000)]
+def split_messages_to_send(message, delimiter="\n") -> None:
+    """
+    This function splits a long message into chunks of maximum size 2000, split by the provided delimiter,
+    and sends each chunk to Discord using the provided send_discord function.
+    :param message: string, the message to send to discord
+    :param delimiter: string, the delimiter to split the message
+    """
+    chunks = textwrap.wrap(
+        message, 2000, break_long_words=False, replace_whitespace=False
+    )
     for chunk in chunks:
-        messages = chunk.split(delimiter)
-        for msg in messages:
-            send_discord(msg)
+        send_discord(chunk)
 
 
-if __name__ == '__main__':
-    print(article_summary(
-        'https://techcrunch.com/2024/03/27/amazon-doubles-down-on-anthropic-completing-its-planned-4b-investment/'
-        ))
+if __name__ == "__main__":
+    print(
+        article_summary(
+            "https://techcrunch.com/2024/03/27/amazon-doubles-down-on-anthropic-completing-its-planned-4b-investment/"
+        )
+    )

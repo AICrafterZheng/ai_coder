@@ -21,7 +21,7 @@ def split_messages_to_send(message, delimiter = "\n") -> None:
     f"""Implement a python function that can split a message and send it to discord.
     :param message: string, the message to send to discord
     :param delimiter: string, the delimiter to split the message
-    Rules: 
+    Rules:
     1. The message is a long string that has bullet points and delimited by "delimiter".
     2. The message should be split by 2000 characters and send to discord.
     3. The message send to discord should be sub group of the original message, which is split by "delimiter", and has a maximum length of 2000 characters.
