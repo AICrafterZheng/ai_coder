@@ -15,6 +15,8 @@ setup(
         "astor",
         "loguru",
         "black",
-        "ruff"
+        "ruff",
+        "instructor",
+        "anthropic"
     ],
 )
