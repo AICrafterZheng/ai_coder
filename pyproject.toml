@@ -17,6 +17,8 @@ python-dotenv = "^1.0.1"
 loguru = "^0.7.2"
 black = "^24.3.0"
 ruff = "^0.3.5"
+instructor = "^1.0.0"
+anthropic = "^0.23.1"
 
 [build-system]
 requires = ["poetry-core"]

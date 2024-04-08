@@ -1,5 +1,5 @@
 from ai_coder.ai_decorators import ai_code
-from ai_coder.openai_client import call_llm
+from ai_coder.llm_client import call_llm
 discord_webhook = "https://discord.com/api/webhooks/1234567890/ABCDEFGHIJKLMN"
 
 @ai_code

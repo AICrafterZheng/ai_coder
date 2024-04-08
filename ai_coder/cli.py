@@ -10,6 +10,8 @@ import inspect
 from loguru import logger
 from typing import List
 from ai_coder.code_formatter import format_code
+from ai_coder.llm_client import generate_func, FuncInfo
+
 class AICoder:
     def __init__(self) -> None:
         self.tree = None
@@ -197,12 +199,11 @@ class AICoder:
         prompt += f"\n the Python function {node.name} has signature: {sig}, please refer to the signature to generate the code, but don't include the signature in the code."
         prompt += " Please import any necessary modules."
         logger.info(f"The prompt to generate the code for function {node.name}: {prompt}")
-        generated_code = call_llm(prompt, sys_prompt=SYS_PROMPT, ai_input="The code is")
-        logger.info(f"generated_code: {generated_code}")
+        func_info: FuncInfo = generate_func(prompt)
+        logger.info(f"generated_code: {func_info}")
         # Replace the function body with the generated code
-        generated_code = generated_code.replace("```python", "").replace("```", "")
-        new_body = ast.parse(generated_code).body
-        logger.info(f"new body: {new_body}")
+        new_body = ast.parse(func_info.body).body
+        logger.info(f"New body: {new_body}")
         return new_body
 
     def replace_function_implementation(self, tree: ast.AST, function_name: str, new_body: List[ast.AST]) -> ast.AST:
