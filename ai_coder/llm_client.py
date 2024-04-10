@@ -1,4 +1,5 @@
 import instructor
+import inspect
 from pydantic import BaseModel, Field
 from openai import OpenAI, AzureOpenAI
 from ai_coder.prompts import SYS_PROMPT
@@ -6,7 +7,7 @@ from typing import List
 from anthropic import Anthropic
 import os
 from dotenv import load_dotenv
-from loguru import logger
+from ai_coder.logger import logger
 # Load environment variables
 load_dotenv()
 
@@ -58,13 +59,18 @@ def generate_func(user_input: str) -> FuncInfo:
     if client is None:
         raise Exception("No OpenAI client found. Please set USE_OPENAI_API, USE_ANTHROPIC or USE_AZURE_OPENAI_API environment variable to True")
     func_info = None
+
     if USE_OPENAI_API:
-        func_info = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            temperature=0,
-            response_model=FuncInfo,
-            messages=[{"role": "system", "content": SYS_PROMPT}, {"role": "user", "content": user_input}],
-        )
+        try:
+            func_info = client.chat.completions.create(
+                model=OPENAI_MODEL,
+                temperature=0,
+                response_model=FuncInfo,
+                messages=[{"role": "system", "content": SYS_PROMPT}, {"role": "user", "content": user_input}],
+            )
+        except Exception as e:
+            logger.error(f"generate_func Error: {e}")
+            raise Exception(e)
     elif USE_AZURE_OPENAI_API:
         func_info = client.chat.completions.create(
             model= AZURE_OPENAI_API_DEPLOYMENT_NAME,

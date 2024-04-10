@@ -3,7 +3,7 @@ import subprocess
 import ast
 import astor
 from ai_coder.file_utils import read_file, write_file
-from loguru import logger
+from ai_coder.logger import logger
 
 def run_pylint(file_path):
     """Run pylint on the specified file."""
@@ -24,7 +24,7 @@ def run_black(file_path):
     return result
 
 def remove_decorator(tree: ast.AST) -> ast.AST:
-        # Create a transformer to remove the @ai_code decorator
+    # Create a transformer to remove the @ai_code decorator
     class AiCodeDecoratorRemover(ast.NodeTransformer):
         def visit_FunctionDef(self, node):
             node.decorator_list = [n for n in node.decorator_list if not isinstance(n, ast.Name) or n.id != 'ai_code']
@@ -36,7 +36,7 @@ def remove_decorator(tree: ast.AST) -> ast.AST:
     return modified_tree
 
 def move_imports_to_top(tree: ast.AST) -> ast.AST:
-        # Create a transformer to move imports to the top
+    # Create a transformer to move imports to the top
     class ImportMover(ast.NodeTransformer):
         def __init__(self):
             self.imports = []

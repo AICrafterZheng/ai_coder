@@ -4,7 +4,7 @@ discord_webhook = "https://discord.com/api/webhooks/1234567890/ABCDEFGHIJKLMN"
 
 @ai_code
 def article_summary(url: str) -> str:
-    f"""Implement a function that can fetch a webpage and  call {call_llm} to get the summary of the webpage. 
+    f"""Fetch a webpage and call {call_llm} to get the summary of the webpage. 
     The input is the url of the webpage and the output is the summary of the webpage."""
 
 @ai_code
