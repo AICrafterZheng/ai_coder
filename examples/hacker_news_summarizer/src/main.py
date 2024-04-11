@@ -3,23 +3,22 @@
 import requests
 import json
 
-def get_top_hacker_news():
+
+def get_top_hacker_news(keywords):
     """
-    To implement a function that fetches the top hacker news mentioning certain keywords, 
+    To implement a function that fetches the top hacker news mentioning certain keywords,
     we'll need to make HTTP requests to the provided URL and parse the JSON response.
     We'll use the 'requests' library for HTTP requests and 'json' library for parsing the response.
     """
     news_list = []
-    response = requests.get(
-        'https://hacker-news.firebaseio.com/v0/topstories.json')
+    response = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json")
     story_ids = json.loads(response.text)
     for story_id in story_ids:
-        story_url = (
-            f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json')
+        story_url = f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
         story_response = requests.get(story_url)
         story = json.loads(story_response.text)
-        if 'title' in story and any(keyword in story['title'].lower() for
-            keyword in keywords):
-            news_list.append({'title': story['title'], 'url': story.get(
-                'url', '')})
+        if "title" in story and any(
+            keyword in story["title"].lower() for keyword in keywords
+        ):
+            news_list.append({"title": story["title"], "url": story.get("url", "")})
     return news_list

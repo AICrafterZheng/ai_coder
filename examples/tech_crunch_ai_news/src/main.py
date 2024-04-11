@@ -15,7 +15,7 @@ def article_summary(url: str) -> str:
 
 
 def send_discord(message: str) -> None:
-    requests.post(discord_webhook, data={"content": message})
+    requests.post(discord_webhook, json={"content": message})
 
 
 def split_messages_to_send(message, delimiter="\n") -> None:

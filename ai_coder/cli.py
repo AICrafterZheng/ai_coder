@@ -17,7 +17,7 @@ class AICoder:
     def __init__(self) -> None:
         self.tree = None
 
-    def gen_code(self, filePath: str) -> None:
+    def gen_code(self, filePath: str, isForceUpdate: bool = False) -> None:
         # Write the new code to a file
         directories = filePath.split(os.sep)
         out_dir = f"./{os.sep.join(directories[1:len(directories)-1])}"
@@ -43,33 +43,35 @@ class AICoder:
                 prompt_map: Dict[str, str] = json.load(f)
         else:
             prompt_map = {}
+        new_prompt_map = {}
 
         for node in ast.walk(self.tree):
             if isinstance(node, ast.FunctionDef) and hasattr(node, 'decorator_list'):
                 decorators = [d.id for d in node.decorator_list]
                 if 'ai_code' in decorators:
-                    if self.is_force_update(node):
-                        # Update the prompt map
-                        prompt_map[node.name] = self.get_prompt(node)
+                    if isForceUpdate:
                         logger.info(f"Force updating the function {node.name}...")
+                        # Update the prompt map
+                        new_prompt_map[node.name] = self.get_prompt(node)
                         new_body = self.get_function_implementation(node)
                         self.replace_function_implementation(node, node.name, new_body)
                         logger.info(f"Saving the generated code to {out_path}.")
                     elif self.is_function_prompt_updated(node, prompt_map):
-                        # Update the prompt map
-                        prompt_map[node.name] = self.get_prompt(node)
                         logger.info(f"Prompt updated for the function {node.name}...")
+                        # Update the prompt map
+                        new_prompt_map[node.name] = self.get_prompt(node)
                         new_body = self.get_function_implementation(node)
                         self.replace_function_implementation(node, node.name, new_body)
                         logger.info(f"Saving the generated code to {out_path}.")
                     elif existing_tree and self.is_function_generated(existing_tree, node.name):
                         logger.info(f"Function {node.name} is already generated. Reusing the existing code...")
+                        new_prompt_map[node.name] = prompt_map.get(node.name, self.get_prompt(node))
                         new_body = self.get_function_from_tree(existing_tree, node.name).body
                         self.replace_function_implementation(node, node.name, new_body)
                     else:
-                        # Update the prompt map
-                        prompt_map[node.name] = self.get_prompt(node)
                         logger.info(f"Generating code for the function {node.name}...")
+                        # Update the prompt map
+                        new_prompt_map[node.name] = self.get_prompt(node)
                         new_body = self.get_function_implementation(node)
                         self.replace_function_implementation(node, node.name, new_body)
                         logger.info(f"Saving the generated code to {out_path}.")
@@ -85,7 +87,7 @@ class AICoder:
         
         # Save the updated prompt map to the lock file
         with open(lock_file_path, 'w') as f:
-            json.dump(prompt_map, f, indent=4)
+            json.dump(new_prompt_map, f, indent=4)
 
 
     def review_code(self, filePath: str) -> None:
@@ -99,12 +101,9 @@ class AICoder:
             write_file(filePath, save_code)
             format_code(filePath)
 
-    def is_force_update(self, function: ast.FunctionDef) -> bool:
-        return False #TODO
-
     def is_function_prompt_updated(self, function: ast.FunctionDef, prompt_map: Dict[str, str]) -> bool:
         current_prompt = self.get_prompt(function)
-        return function.name not in prompt_map or prompt_map[function.name] != current_prompt
+        return function.name in prompt_map and prompt_map[function.name] != current_prompt
 
     def is_function_defined(self, function: str) -> bool:
         for node in ast.walk(self.tree):
@@ -208,11 +207,8 @@ class AICoder:
         # Get the function constants
         constants = []
         for node in ast.walk(function_def):
-            logger.info(f"Checking node: {node}")
             if isinstance(node, ast.Constant):
-                logger.info(f"Found constant: {node.value}")
                 constants.append(node.value)
-        logger.info(f"The constants in function {function_def.name}: {constants}")  
         return " ".join(constants)
 
     def get_function_implementation(self, node: ast.FunctionDef) -> List[ast.AST]:
@@ -253,12 +249,13 @@ def main() -> None:
     # Subcommand: gen_code
     parser_gen_code = subparsers.add_parser('gen', help='Generate code from a file')
     parser_gen_code.add_argument('filepath', type=str, help='The file to generate code from')
+    parser_gen_code.add_argument('--force', action='store_true', help='Force code generation even if the prompt is unchanged')
 
     args = parser.parse_args()
     logger.info(f"args: {args}")
     if args.command == 'gen':
         ai_coder = AICoder()
-        ai_coder.gen_code(args.filepath)
+        ai_coder.gen_code(args.filepath, args.force)
     else:
         parser.print_help()
 

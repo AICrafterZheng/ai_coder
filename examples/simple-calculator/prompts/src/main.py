@@ -2,7 +2,7 @@ from ai_coder.ai_decorators import ai_code
 
 @ai_code
 def add(a, b):
-    return "Implement an add function that takes two numbers and returns their sum."
+    f"Implement an add function that takes two numbers and returns their sum."
 
 
 def sub(a, b):
