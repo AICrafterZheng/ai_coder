@@ -14,6 +14,8 @@ load_dotenv()
 USE_AZURE_OPENAI_API = os.getenv("USE_AZURE_OPENAI_API", "False").lower() == "true"
 USE_ANTHROPIC = os.getenv("USE_ANTHROPIC", "False").lower() == "true"
 USE_OPENAI_API = os.getenv("USE_OPENAI_API", "False").lower() == "true"
+USE_OPENROUTER_API = os.getenv("USE_OPENROUTER_API", "False").lower() == "true"
+
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "")
@@ -22,10 +24,13 @@ AZURE_OPENAI_API_BASE = os.getenv("AZURE_OPENAI_API_BASE", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "")
 
 logger.info(f"USE_OPENAI_API: {USE_OPENAI_API}")
 logger.info(f"USE_ANTHROPIC: {USE_ANTHROPIC}")
 logger.info(f"USE_AZURE_OPENAI_API: {USE_AZURE_OPENAI_API}")
+logger.info(f"USE_OPENROUTER_API: {USE_OPENROUTER_API}")
 
 # Define the function structure
 class FuncInfo(BaseModel):
@@ -52,6 +57,13 @@ elif USE_AZURE_OPENAI_API:
         api_key=AZURE_OPENAI_API_KEY,
         api_version=AZURE_OPENAI_API_VERSION,
         azure_endpoint=AZURE_OPENAI_API_BASE
+    )
+    client = instructor.patch(llm)
+elif USE_OPENROUTER_API:
+    logger.info("Using OpenRouter API")
+    llm = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_API_KEY,
     )
     client = instructor.patch(llm)
 
@@ -90,6 +102,15 @@ def generate_func(user_input: str) -> FuncInfo:
             model= ANTHROPIC_MODEL,
             response_model = FuncInfo
         )
+    elif USE_OPENROUTER_API:
+        func_info = client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            response_model=FuncInfo,
+            messages=[
+                {"role": "system", "content": SYS_PROMPT},
+                {"role": "user", "content": user_input}
+            ],
+        )
     return func_info
 
 def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
@@ -103,16 +124,17 @@ def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
                 messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_input}, {"role": "assistant", "content": ai_input}],
             )
             return response.choices[0].message.content
-        if USE_AZURE_OPENAI_API:
+        elif USE_AZURE_OPENAI_API:
             response = llm.chat.completions.create(
                 model= AZURE_OPENAI_API_DEPLOYMENT_NAME,
                 temperature=0,
                 messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_input}, {"role": "assistant", "content": ai_input}],
             )
             return response.choices[0].message.content
-        if USE_ANTHROPIC:
+        elif USE_ANTHROPIC:
             response = llm.messages.create(
                 max_tokens=1024,
+                system= sys_prompt,
                 messages=[
                     {
                         "role": "user",
@@ -121,7 +143,18 @@ def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
                 ],
                 model= ANTHROPIC_MODEL
             )
+            logger.info(f"call_llm USE_ANTHROPIC response: {response.content}")
             return response.content
+        elif USE_OPENROUTER_API:
+            response = llm.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_input,},
+                {"role": "assistant", "content": ai_input},
+            ],
+            )
+            return response.choices[0].message.content
     except Exception as e:
         logger.error(f"call_llm Error: {e}")
         return "Error: Unable to connect to the model."
