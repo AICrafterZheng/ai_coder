@@ -1,9 +1,11 @@
-import os
+import re
 import subprocess
 import ast
 import astor
 from ai_coder.file_utils import read_file, write_file
 from ai_coder.logger import logger
+from ai_coder.llm_client import call_llm
+from ai_coder.prompts import CLEANUP_PROMPT
 
 def run_pylint(file_path):
     """Run pylint on the specified file."""
@@ -73,7 +75,31 @@ def format_code(file_path: str) -> str:
     run_black(file_path)
     return run_ruff(file_path)
 
+def review_code(filePath: str) -> None:
+    logger.info("Reviewing the code...")
+    error = format_code(filePath)
+    if "F821" in error: #Fixing Error like: F821 Undefined name `requests`
+        logger.info("Error detected in the code. Fixing the code...")
+        save_code = read_file(filePath)
+        save_code = call_llm(save_code, sys_prompt=CLEANUP_PROMPT.format(error), ai_input="The code is")
+        save_code = extract_code(save_code)
+        logger.info("Formatting the code again after fixing the error...")
+        write_file(filePath, save_code)
+        format_code(filePath)
+
+def extract_code(text: str) -> str:
+    pattern = r'```python\n(.*?)\n```'
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        logger.info("Extracted code from ```python")
+        code_block = match.group(1)
+        return code_block
+    else:
+        logger.info("No ```python, do nothing, return the original text.")
+        return text
+
 if __name__ == '__main__':
-    file_path = 'tmp.py'
-    logger.info(format_code(file_path))
+    file_path = 'tmp1.py'
+    code = read_file(file_path)
+    logger.info(extract_code(code))
 

@@ -1,5 +1,4 @@
 import instructor
-import inspect
 from pydantic import BaseModel, Field
 from openai import OpenAI, AzureOpenAI
 from ai_coder.prompts import SYS_PROMPT
@@ -62,7 +61,7 @@ elif USE_AZURE_OPENAI_API:
 elif USE_OPENROUTER_API:
     logger.info("Using OpenRouter API")
     llm = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
+        base_url= "https://openrouter.ai/api/v1",
         api_key=OPENROUTER_API_KEY,
     )
     client = instructor.patch(llm)
@@ -134,17 +133,16 @@ def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
         elif USE_ANTHROPIC:
             response = llm.messages.create(
                 max_tokens=1024,
-                system= sys_prompt,
                 messages=[
                     {
                         "role": "user",
-                        "content": user_input,
+                        "content": f"{sys_prompt}, the user input:\n {user_input}",
                     }
                 ],
                 model= ANTHROPIC_MODEL
             )
             logger.info(f"call_llm USE_ANTHROPIC response: {response.content}")
-            return response.content
+            return response.content[0].text
         elif USE_OPENROUTER_API:
             response = llm.chat.completions.create(
             model=OPENROUTER_MODEL,
@@ -163,5 +161,5 @@ def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
 
 if __name__ == "__main__":
     user_input = "Implement a python function that can write a string to a file"
-    print(call_llm(user_input))
-    # print(generate_func(user_input))
+    #print(call_llm(user_input))
+    print(generate_func(user_input))

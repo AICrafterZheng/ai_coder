@@ -26,7 +26,7 @@ CLEANUP_PROMPT = inspect.cleandoc(
 The errors are:
 ### \n {} \n ###
 Constraints:
-1. Please only output the code, do not include any other information
+1. Please return pure the Python code only, NO backticks, NO your thinking process, NO explanation.
 2. If no cleanup is needed, please return the original code
 """
 )
