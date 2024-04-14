@@ -91,7 +91,7 @@ def generate_func(user_input: str) -> FuncInfo:
         )
     elif USE_ANTHROPIC:
         func_info = client.messages.create(
-            max_tokens=1024,
+            max_tokens = 4096,
             messages=[
                 {
                     "role": "user",
@@ -119,20 +119,20 @@ def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
         if USE_OPENAI_API:
             response = llm.chat.completions.create(
                 model=OPENAI_MODEL,
-                temperature=0,
+                temperature=0.7,
                 messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_input}, {"role": "assistant", "content": ai_input}],
             )
             return response.choices[0].message.content
         elif USE_AZURE_OPENAI_API:
             response = llm.chat.completions.create(
                 model= AZURE_OPENAI_API_DEPLOYMENT_NAME,
-                temperature=0,
+                temperature=0.7,
                 messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_input}, {"role": "assistant", "content": ai_input}],
             )
             return response.choices[0].message.content
         elif USE_ANTHROPIC:
             response = llm.messages.create(
-                max_tokens=1024,
+                max_tokens = 4096,
                 messages=[
                     {
                         "role": "user",

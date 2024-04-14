@@ -210,7 +210,10 @@ class AICoder:
         func_info: FuncInfo = generate_func(prompt)
         logger.info(f"generated_code: {func_info}")
         # Replace the function body with the generated code
-        new_body = ast.parse(func_info.body).body
+        body = func_info.body
+        if body.startswith('    '):# Fix error "IndentationError: unexpected indent"
+            body = '\n'.join(line[4:] if line.startswith('    ') else line for line in body.split('\n'))
+        new_body = ast.parse(body).body
         logger.info(f"New body: {new_body}")
         return new_body
 
