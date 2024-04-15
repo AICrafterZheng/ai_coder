@@ -6,6 +6,9 @@ from ai_coder.file_utils import read_file, write_file
 from ai_coder.logger import logger
 from ai_coder.llm_client import call_llm
 from ai_coder.prompts import CLEANUP_PROMPT
+import sys
+import importlib.util
+from typing import List
 
 def run_pylint(file_path):
     """Run pylint on the specified file."""
@@ -98,8 +101,30 @@ def extract_code(text: str) -> str:
         logger.info("No ```python, do nothing, return the original text.")
         return text
 
+def is_builtin_or_standard_library(library_name: str) -> bool:
+    return library_name in sys.builtin_module_names or importlib.util.find_spec(library_name) is not None
+
+def get_not_installed_libraries(code: str) -> List[str]:
+    tree = ast.parse(code)
+    libs = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if is_builtin_or_standard_library(alias.name) == False:
+                    libs.append(alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module
+            if is_builtin_or_standard_library(module) == False:
+                libs.append(module)
+    return libs
+
+def print_help_info_to_console(code: str) -> None:
+    libs = get_not_installed_libraries(code)
+    logger.info(f"Congrats, code generated successfully. To run the generated code, follow these steps:\n1. Install the required libraries by running: pip install {' '.join(libs)}\n2. Execute the generated code by running: python src/main.py")
+
 if __name__ == '__main__':
     file_path = 'tmp1.py'
     code = read_file(file_path)
-    logger.info(extract_code(code))
+    logger.info(print_help_info_to_console(code))
+
 
