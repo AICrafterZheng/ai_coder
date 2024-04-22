@@ -1,0 +1,6 @@
+{
+    "add": "Implement a POST API to add two numbers a and b using FastAPI",
+    "sub": "Implement a POST API to subtract two numbers a and b using FastAPI",
+    "multiply": "Implement a POST API to multiply two numbers a and b using FastAPI",
+    "divide": "Implement a POST API to divide two numbers a and b using FastAPI"
+}

@@ -1,0 +1,3 @@
+{
+    "send_discord": "f'\\n    Implement a Function to send a message to a Discord webhook\\n    :param message: string, the message to send\\n    the discord_webhook is {discord_webhook}\\n    '\n The variable: discord_webhook is already defined, you can just use it."
+}

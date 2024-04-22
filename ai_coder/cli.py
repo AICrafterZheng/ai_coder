@@ -8,14 +8,21 @@ import inspect
 from ai_coder.logger import logger
 from typing import List, Dict
 from ai_coder.code_utils import review_code, print_help_info_to_console
-from ai_coder.llm_client import generate_func, FuncInfo
+from ai_coder.llm_client import generate_func, CodeModel, call_llm
 import json
 
 class AICoder:
     def __init__(self) -> None:
         self.tree = None
+        self.prompt_map = {}
+        self.new_prompt_map = {}
+        self.isForceUpdate = False
+        self.out_path = None
+        self.existing_tree = None
 
     def gen_code(self, filePath: str, isForceUpdate: bool = False) -> None:
+        self.isForceUpdate = isForceUpdate
+
         # Write the new code to a file
         directories = filePath.split(os.sep)
         out_dir = f"./{os.sep.join(directories[1:len(directories)-1])}"
@@ -24,12 +31,12 @@ class AICoder:
             os.makedirs(out_dir, exist_ok=True)
 
         out_path = f"./{os.sep.join(directories[1:])}"
+        self.out_path = out_path
         logger.info(f"Generating code from {filePath} to {out_path}...")
-        existing_tree = None
         if os.path.exists(out_path):
             existing_code = read_file(out_path)
             if existing_code.strip() != "":
-                existing_tree = ast.parse(existing_code)
+                self.existing_tree = ast.parse(existing_code)
 
         code = read_file(filePath)
         self.tree = ast.parse(code)
@@ -38,41 +45,19 @@ class AICoder:
         lock_file_path = filePath + ".lock"
         if os.path.exists(lock_file_path):
             with open(lock_file_path, 'r') as f:
-                prompt_map: Dict[str, str] = json.load(f)
+                self.prompt_map: Dict[str, str] = json.load(f)
         else:
-            prompt_map = {}
-        new_prompt_map = {}
+            self.prompt_map = {}
+        self.new_prompt_map = {}
 
-        for node in ast.walk(self.tree):
-            if isinstance(node, ast.FunctionDef) and hasattr(node, 'decorator_list'):
-                decorators = [d.id for d in node.decorator_list]
-                if 'ai_code' in decorators:
-                    if isForceUpdate:
-                        logger.info(f"Force updating the function {node.name}...")
-                        # Update the prompt map
-                        new_prompt_map[node.name] = self.get_prompt(node)
-                        new_body = self.get_function_implementation(node)
-                        self.replace_function_implementation(node, node.name, new_body)
-                        logger.info(f"Saving the generated code to {out_path}.")
-                    elif self.is_function_prompt_updated(node, prompt_map):
-                        logger.info(f"Prompt updated for the function {node.name}...")
-                        # Update the prompt map
-                        new_prompt_map[node.name] = self.get_prompt(node)
-                        new_body = self.get_function_implementation(node)
-                        self.replace_function_implementation(node, node.name, new_body)
-                        logger.info(f"Saving the generated code to {out_path}.")
-                    elif existing_tree and self.is_function_generated(existing_tree, node.name):
-                        logger.info(f"Function {node.name} is already generated. Reusing the existing code...")
-                        new_prompt_map[node.name] = prompt_map.get(node.name, self.get_prompt(node))
-                        new_body = self.get_function_from_tree(existing_tree, node.name).body
-                        self.replace_function_implementation(node, node.name, new_body)
-                    else:
-                        logger.info(f"Generating code for the function {node.name}...")
-                        # Update the prompt map
-                        new_prompt_map[node.name] = self.get_prompt(node)
-                        new_body = self.get_function_implementation(node)
-                        self.replace_function_implementation(node, node.name, new_body)
-                        logger.info(f"Saving the generated code to {out_path}.")
+        # for node in ast.walk(self.tree):
+        for node in self.tree.body:
+            if isinstance(node, ast.ClassDef):
+                for sub_node in node.body:
+                    if isinstance(sub_node, ast.FunctionDef) and self.has_ai_code_decorator(sub_node):
+                        self.prompt_to_code(sub_node)
+            elif isinstance(node, ast.FunctionDef) and self.has_ai_code_decorator(node):
+                self.prompt_to_code(node)
 
         save_code = astor.to_source(self.tree)
         logger.info(f"Code to save: {save_code}")
@@ -86,7 +71,46 @@ class AICoder:
 
         # Save the updated prompt map to the lock file
         with open(lock_file_path, 'w') as f:
-            json.dump(new_prompt_map, f, indent=4)
+            json.dump(self.new_prompt_map, f, indent=4)
+
+    def has_ai_code_decorator(self, node: ast.FunctionDef) -> bool:
+        if not hasattr(node, 'decorator_list'):
+            return False
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Name) and decorator.id == 'ai_code':
+                logger.info(f"Function {node.name} has the ai_code decorator.")
+                return True
+        logger.info(f"Function {node.name} does not have the ai_code decorator.")
+        return False
+    
+    def prompt_to_code(self, node: ast.FunctionDef):
+        logger.info(f"prompt_to_code called with {node.name}")
+        if self.isForceUpdate:
+            logger.info(f"Force updating the function {node.name}...")
+            # Update the prompt map
+            self.new_prompt_map[node.name] = self.get_prompt(node)
+            new_body = self.get_function_implementation(node)
+            self.replace_function_implementation(node, node.name, new_body)
+            logger.info(f"Saving the generated code to {self.out_path}.")
+        elif self.is_function_prompt_updated(node, self.prompt_map):
+            logger.info(f"Prompt updated for the function {node.name}...")
+            # Update the prompt map
+            self.new_prompt_map[node.name] = self.get_prompt(node)
+            new_body = self.get_function_implementation(node)
+            self.replace_function_implementation(node, node.name, new_body)
+            logger.info(f"Saving the generated code to {self.out_path}.")
+        elif self.existing_tree and self.is_function_generated(self.existing_tree, node.name):
+            logger.info(f"Function {node.name} is already generated. Reusing the existing code...")
+            self.new_prompt_map[node.name] = self.prompt_map.get(node.name, self.get_prompt(node))
+            new_body = self.get_function_from_tree(self.existing_tree, node.name).body
+            self.replace_function_implementation(node, node.name, new_body)
+        else:
+            logger.info(f"Generating code for the function {node.name}...")
+            # Update the prompt map
+            self.new_prompt_map[node.name] = self.get_prompt(node)
+            new_body = self.get_function_implementation(node)
+            self.replace_function_implementation(node, node.name, new_body)
+            logger.info(f"Saving the generated code to {self.out_path}.")
 
     def is_function_prompt_updated(self, function: ast.FunctionDef, prompt_map: Dict[str, str]) -> bool:
         current_prompt = self.get_prompt(function)
@@ -143,7 +167,8 @@ class AICoder:
             return ""
 
     def get_function_signature(self, function_name: str) -> str:
-        # Find the import statement for call_llm
+        logger.info(f"Getting signature for function {function_name}")
+        # Get function signature from the import statement
         for node in ast.walk(self.tree):
             if isinstance(node, ast.ImportFrom):
                 for alias in node.names:
@@ -158,6 +183,7 @@ class AICoder:
                         signature = inspect.signature(imported_function)
                         logger.info(f"{function_name} is imported, signature: {signature}")
                         return  str(signature)
+        # Get function signature from the function definition
         for node in ast.walk(self.tree):
             if isinstance(node, ast.FunctionDef) and node.name == function_name:
                 logger.info(f"Function {function_name} is defined. Checking the signature...")
@@ -170,7 +196,9 @@ class AICoder:
                     return_type = node.returns.value
                 else:
                     return_type = None
-                return f"({', '.join(args)}) -> {return_type}"
+                sig = f"({', '.join(args)}) -> {return_type}"
+                logger.info(f"{function_name} is defined, got signature: {sig}")
+                return sig
         return ""
 
     def is_variable_defined(self, variable_name: str) -> bool:
@@ -187,16 +215,15 @@ class AICoder:
         # Get the function docstring
         docstring = ast.get_docstring(function_def)
         if docstring:
+            logger.info(f"Function {function_def.name} docstring prompt: {docstring}")
             return docstring
+        logger.warning(f"Function {function_def.name} docstring not found.")
         f_string = self.get_function_f_string_info(function_def)
         if f_string:
+            logger.info(f"Function {function_def.name} f_string prompt: {f_string}")
             return f_string
-        # Get the function constants
-        constants = []
-        for node in ast.walk(function_def):
-            if isinstance(node, ast.Constant):
-                constants.append(node.value)
-        return " ".join(constants)
+        logger.warning(f"Function {function_def.name} prompt not found.")
+        return ""
 
     def get_function_implementation(self, node: ast.FunctionDef) -> List[ast.AST]:
         """
@@ -205,16 +232,16 @@ class AICoder:
         # Extract the description from the return statement
         prompt = self.get_prompt(node)
         sig = self.get_function_signature(node.name)
-        prompt += f"\n the Python function {node.name} has signature: {sig}, please refer to the signature to generate the code, but don't include the signature in the code."
+        prompt += f"\n the Python function signature is '{node.name}: {sig}', please refer to the signature to generate the code, but don't include the signature in the code."
         prompt += " Please import any necessary modules."
         logger.info(f"The prompt to generate the code for function {node.name}: {prompt}")
-        func_info: FuncInfo = generate_func(prompt)
-        logger.info(f"generated_code: {func_info}")
+        code_model: CodeModel = generate_func(prompt)
+        logger.info(f"generated_code: {code_model}")
         # Replace the function body with the generated code
-        body = func_info.body
-        if body.startswith('    '):# Fix error "IndentationError: unexpected indent"
-            body = '\n'.join(line[4:] if line.startswith('    ') else line for line in body.split('\n'))
-        new_body = ast.parse(body).body
+        func_body = code_model.func_body
+        if func_body.startswith('    '):# Fix error "IndentationError: unexpected indent"
+            func_body = '\n'.join(line[4:] if line.startswith('    ') else line for line in func_body.split('\n'))
+        new_body = ast.parse(func_body).body
         logger.info(f"New body: {new_body}")
         return new_body
 

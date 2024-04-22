@@ -32,12 +32,15 @@ logger.info(f"USE_AZURE_OPENAI_API: {USE_AZURE_OPENAI_API}")
 logger.info(f"USE_OPENROUTER_API: {USE_OPENROUTER_API}")
 
 # Define the function structure
-class FuncInfo(BaseModel):
+class CodeModel(BaseModel):
+    classes: List[str] = Field([], description="List of defined classes, e.g. class Item(BaseModel):\n    a: int\n    b: int")
+    assigns: List[str] = Field([], description="List of defined variables, e.g. app = FastAPI()")
     imports: List[str] = Field([], description="List of imports")
-    name: str = Field(..., description="Name of the function")
-    parameters: List[str] = Field(..., description="Function parameters")
-    body: str = Field(..., description="Function body, not including the function definition")
-    return_type: str = Field(..., description="Return type of the function")
+    func_name: str = Field(..., description="Name of the function")
+    func_args: List[str] = Field(..., description="Function arguments")
+    func_decorators: List[str] = Field([], description="Function decorators")
+    func_body: str = Field(..., description="Function body, not including the function name and arguments")
+    func_return: str = Field(..., description="Return type of the function")
 
 client = None
 llm = None
@@ -45,7 +48,7 @@ llm = None
 if USE_OPENAI_API:
     logger.info("Using OpenAI API")
     llm = OpenAI(api_key=OPENAI_API_KEY)
-    client = instructor.patch(llm)
+    client = instructor.from_openai(llm)
 elif USE_ANTHROPIC:
     logger.info("Using Anthropic API")
     llm = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -57,16 +60,16 @@ elif USE_AZURE_OPENAI_API:
         api_version=AZURE_OPENAI_API_VERSION,
         azure_endpoint=AZURE_OPENAI_API_BASE
     )
-    client = instructor.patch(llm)
+    client = instructor.from_openai(llm)
 elif USE_OPENROUTER_API:
     logger.info("Using OpenRouter API")
     llm = OpenAI(
         base_url= "https://openrouter.ai/api/v1",
         api_key=OPENROUTER_API_KEY,
     )
-    client = instructor.patch(llm)
+    client = instructor.from_openai(llm)
 
-def generate_func(user_input: str) -> FuncInfo:
+def generate_func(user_input: str) -> CodeModel:
     if client is None:
         raise Exception("No OpenAI client found. Please set USE_OPENAI_API, USE_ANTHROPIC or USE_AZURE_OPENAI_API environment variable to True")
     func_info = None
@@ -76,7 +79,7 @@ def generate_func(user_input: str) -> FuncInfo:
             func_info = client.chat.completions.create(
                 model=OPENAI_MODEL,
                 temperature=0,
-                response_model=FuncInfo,
+                response_model=CodeModel,
                 messages=[{"role": "system", "content": SYS_PROMPT}, {"role": "user", "content": user_input}],
             )
         except Exception as e:
@@ -86,7 +89,7 @@ def generate_func(user_input: str) -> FuncInfo:
         func_info = client.chat.completions.create(
             model= AZURE_OPENAI_API_DEPLOYMENT_NAME,
             temperature=0,
-            response_model=FuncInfo,
+            response_model=CodeModel,
             messages=[{"role": "system", "content": SYS_PROMPT}, {"role": "user", "content": user_input}],
         )
     elif USE_ANTHROPIC:
@@ -99,12 +102,12 @@ def generate_func(user_input: str) -> FuncInfo:
                 }
             ],
             model= ANTHROPIC_MODEL,
-            response_model = FuncInfo
+            response_model = CodeModel
         )
     elif USE_OPENROUTER_API:
         func_info = client.chat.completions.create(
             model=OPENROUTER_MODEL,
-            response_model=FuncInfo,
+            response_model=CodeModel,
             messages=[
                 {"role": "system", "content": SYS_PROMPT},
                 {"role": "user", "content": user_input}
@@ -161,5 +164,5 @@ def call_llm(user_input: str, sys_prompt: str = "", ai_input: str = "") -> str:
 
 if __name__ == "__main__":
     user_input = "Implement a python function that can write a string to a file"
-    #print(call_llm(user_input))
+    # print(call_llm(user_input))
     print(generate_func(user_input))
