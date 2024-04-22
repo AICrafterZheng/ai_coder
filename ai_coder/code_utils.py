@@ -122,7 +122,8 @@ def print_help_info_to_console(code: str) -> None:
     libs = get_not_installed_libraries(code)
     if len(libs) > 0:
         logger.info(f"Congrats, code generated successfully. To run the generated code, follow these steps:\n1. Install the required libraries by running: pip install {' '.join(libs)}\n2. Execute the generated code by running: python src/main.py")
-
+    else:
+        logger.info(f"Congrats, code generated successfully. To run the generated code, follow these steps:\n1. Execute the generated code by running: python src/main.py")
 if __name__ == '__main__':
     file_path = 'tmp1.py'
     code = read_file(file_path)

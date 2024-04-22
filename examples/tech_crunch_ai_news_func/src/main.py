@@ -10,10 +10,9 @@ discord_webhook = "https://discord.com/api/webhooks/1234567890/ABCDEFGHIJKLMN"
 def article_summary(url: str) -> str:
     response = requests.get(url)
     response.raise_for_status()
-    html_content = response.text
-    soup = BeautifulSoup(html_content, "html.parser")
-    text_content = " ".join(p.get_text() for p in soup.find_all("p"))
-    summary = call_llm(text_content)
+    soup = BeautifulSoup(response.text, "html.parser")
+    article_text = " ".join(p.get_text() for p in soup.find_all("p"))
+    summary = call_llm(article_text, sys_prompt="Please summarize the article")
     return summary
 
 

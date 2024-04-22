@@ -1,6 +1,11 @@
 from ai_coder.ai_decorators import ai_code
 from fastapi import FastAPI
+from pydantic import BaseModel
+
 app = FastAPI()
+class Item(BaseModel):
+    a: float
+    b: float
 
 @ai_code
 @app.post("/add/")
